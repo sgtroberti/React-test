@@ -11,39 +11,49 @@ const Home = () => {
   const [posts, setPosts] = useState();
   const [maxPage, setMaxPage] = useState();
   const [actualPage, setActualPage] = useState(1);
+  const [totalPosts, setTotalPosts] = useState();
+  const [lastRequest, setLastRequest] = useState("normal");
   const { register, handleSubmit, reset } = useForm();
 
+  console.log({ posts, maxPage, actualPage, totalPosts, lastRequest });
+
+  const request = async (
+    endpoint = `?page=${actualPage}`,
+    search = "normal"
+  ) => {
+    setPosts(null);
+    const data = await api.get(endpoint);
+    if (data) {
+      setPosts(data.data);
+      setMaxPage(data.headers["x-wp-totalpages"]);
+      setTotalPosts(data.headers["x-wp-total"]);
+      search !== "normal" && setLastRequest(search);
+    }
+  };
+
   useEffect(() => {
-    const request = async () => {
-      setPosts(null);
-      const data = await api.get(`?page=${actualPage}`);
-      if (data) {
-        setPosts(data.data);
-        setMaxPage(data.headers["x-wp-totalpages"]);
-      }
-    };
-    request();
+    lastRequest === "normal"
+      ? request()
+      : request(`?search=${lastRequest}&page=${actualPage}&orderby=relevance`);
   }, [actualPage]);
 
   const onSubmit = async (data) => {
     setPosts(null);
-    const response = await api.get(
-      `?search=${data.search}&page=1&orderby=relevance`
+    setTotalPosts(0);
+    setActualPage(1);
+    request(
+      `?search=${data.search}&page=${actualPage}&orderby=relevance`,
+      data.search
     );
-    if (response) {
-      setPosts(response.data);
-      setMaxPage(response.headers["x-wp-totalpages"]);
-    }
   };
 
   const handleClear = async () => {
     setPosts(null);
+    setTotalPosts(0);
+    setActualPage(1);
+    setLastRequest("normal");
     reset();
-    const data = await api.get(`?page=${actualPage}`);
-    if (data) {
-      setPosts(data.data);
-      setMaxPage(data.headers["x-wp-totalpages"]);
-    }
+    request();
   };
 
   return (
@@ -80,6 +90,9 @@ const Home = () => {
           maxPage={maxPage}
           setActualPage={setActualPage}
         />
+      </Flex>
+      <Flex m={[2, 4, 8]}>
+        <Text>Total de artigos: {totalPosts}</Text>
       </Flex>
       {posts ? (
         posts.map((post) => (
